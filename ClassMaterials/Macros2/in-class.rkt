@@ -8,7 +8,9 @@
   (syntax-case stx ()
     [(myand exp) #'exp]
     [(myand exp exps ...)
-     #'(quote nyi)]))
+     #'(if exp
+           (myand exps ...)
+           #f)]))
 
 ;; EXERCISE MYLET*
 ;; Build an your own implementation of mylet*.
@@ -17,10 +19,14 @@
 ;; of lambda.
 
 (define-syntax (mylet* stx)
-  #'(quote nyi))
+  (syntax-case stx ()
+    [(mylet* ((name value)) body...)
+     #'(let ((name value)) body...)]
+    [(mylet* ((name value) more...) body...)
+     #'(let ((name value)) (mylet* (more...) body...))]))
 
 ;; Usage
-;; (mylet* ((a 2) (b (+ 1 a))) (+ a b)) yields 5
+;;(mylet* ((a 2) (b (+ 1 a))) (+ a b)) ;yields 5
 
 ;; IN CLASS EXAMPLE REPEAT
 ;; 
@@ -30,12 +36,13 @@
 
 (define-syntax (repeat stx)
   (syntax-case stx ()
-    [(_ numExp repeatExp ) #'(let repeatme ((count 0))
-                               (if (= count numExp)
+    [(_ numExp repeatExp ) #'(let ((goal numExp))
+                           (let repeatme ((count 0))
+                               (if (= count goal)
                                    (void)
                                    (begin
                                      repeatExp
-                                     (repeatme (add1 count)))))]))
+                                     (repeatme (add1 count))))))]))
 
 ;; IN CLASS EXERCISE REPEAT
 ;; Make a second form of repeat that has variable parameter that you can
@@ -56,12 +63,14 @@
 (define-syntax (listlet stx)
   (syntax-case stx ()
     [(listlet (a) exp body ...)
-     #'(quote nyi)]
+     #'(let ((a (car exp))) body ...)]
     [(listlet (var vars ...) exp body ...)
-     #'(quote nyi)]))
+     #'(let ((lst exp))
+         (let ((var (car lst)))
+           (listlet (vars ...) (cdr lst) body ...)))]))
 
- (let ((mylist (list 1 2 3 4)))
-    (listlet (a b c d) mylist (list (+ a b) (+ c d)))) 
+(let ((mylist (list 1 2 3 4)))
+    (listlet (a b c d) mylist (list (+ a b) (+ c d))))
 ; should yield '(3 7)
 
  (listlet (a b c) (list (display "x") (display "y") (display "z")) (cons a (cons b c)))
@@ -123,7 +132,11 @@
 
 (define-syntax if-it
   (lambda (stx)
-    #'(quote nyi)))
+    (syntax-case stx ()
+        [(if-it exp ifexp elsexp)
+         (with-syntax([local-it (datum->syntax stx 'it)])
+             #'(let ((local-it exp))
+                 (if local-it ifexp elsexp)))])))
 
 (if-it 3 it 4) ; returns 3
 (if-it #f 5 it) ; returns #f
